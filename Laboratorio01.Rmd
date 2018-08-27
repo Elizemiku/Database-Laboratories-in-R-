@@ -1,0 +1,202 @@
+---
+title: "Manipulação de Dados no Formato Tidy"
+author: "Elizabeth Borgognoni Souto"
+date: "13 de agosto de 2018"
+output:
+  html_document: default
+---
+
+Um conjunto de dados no formato tidy beneficia o analista de dados por permitir a manipulação dos mesmos de uma maneira unificada. De modo similar, métodos estatísticos são habitualmente implementados para receber dados neste formato. Desta maneira, a importação e tratamento de dados visando o referido formato reduzirá a criação de bancos de dados temporários, evitando problemas difíceis de diagnosticar.
+
+Neste laboratório, você deverá criar e entregar um arquivo do tipo Rmd que realize as atividades descritas abaixo. Os conjuntos de dados apresentados correspondem ao número de casos de tuberculose observados em alguns países, juntamente com seus tamanhos populacionais.
+
+Q1: Instale o pacote tidyverse
+Para esta instalação, utilize o repositório http://cran.us.r-project.org. Apresente o comando utilizado para a instalação (instalação via interface gráfica não deve ser realizada).
+```{r, eval = FALSE}
+install.packages("tidyverse", repos = " http://cran.us.r-project.org", type = "win.binary")
+```
+
+Q2: Carregue o pacote tidyverse
+```{r, warning = FALSE, message = FALSE}
+library("tidyverse")
+```
+
+Q3: Apresente os bancos de dados table1, table2, table3, table4a e table4b
+```{r}
+table1
+table2
+table3
+table4a
+table4b
+```
+
+Q4: Descreva textualmente se cada um dos conjuntos de dados apresentados acima está no formato tidy. Justifique cada uma de suas respostas.
+
+Analisando`table1` observamos que este banco de dados esta no formato tidy, pois todas as colunas são variáveis e as observações são linhas que contém apenas uma única informação.
+
+Analisando `table2` observamos que este banco de dados não esta no formato tidy, pois a coluna type tem duas variáveis e deveria ter observações para apenas uma única informação. 
+
+Analisando `table3` observamos que este banco de dados não esta no formato tidy, pois a coluna cases e population se transformou em apenas uma coluna(rate), também contendo mais de uma variável como em `table2`.
+
+Analisando `table4a` observamos que este banco de dados não esta no formato tidy, pois o nome de uma das colunas é um valor numérico, neste caso a coluna não é uma variável. Isto confunde o usuário para encontrar o nome da variável desta coluna.
+
+Analisando `table4b` observamos que este banco de dados não esta no formato tidy, pois o nome de duas das colunas é um valor numérico, neste caso estas colunas não são variáveis. Isto confunde o usuário para encontrar o nome da variável destas colunas assim como em `table4a`. 
+
+Q5: Utilizando comandos do pacote dplyr, determine a taxa de ocorrência de tuberculose para cada 10.000 pessoas.
+```{r}
+table1 %>%
+  mutate(rate = cases/population *10000) 
+```
+
+Q6: Apresente, utilizando comandos do pacote dplyr, o número de casos de tuberculose por ano.
+```{r}
+table1 %>%
+  group_by(year) %>%
+  summarise(total = sum(cases))
+```
+
+Q7: Apresente um gráfico de linhas, preparado via ggplot2, apresentando a mudança no número de casos por país.
+```{r, fig.align='center'}
+ggplot(table1, aes(x = year , y = cases, color = country)) + 
+  geom_line() + scale_x_continuous(breaks = c(1999,2000))
+```
+
+Como o gráfico ficou com valores quebrados entre os anos de 1999 e 2000, resolvi colocar a função breaks para aparecer apenas os 2 anos. 
+
+Q8: Calcule a taxa para as tabelas table2 e table4a+table4b. Para isso, você precisará executar 4 passos:
+
+Extrair o número de casos de tuberculose por país, por ano;
+Extrair o tamanho da população correspondente, por ano;
+Dividir o número de casos pelo tamanho da população e multiplicar o resultado por 10.000;
+Armazenar o resultado numa variável apropriada;
+
+```{r}
+nova_table2 <- table2 %>% 
+  group_by(country, year) %>% 
+  summarise(rate = count[1]/count[2] * 10000) 
+
+nova_table4ab <- table4a[,-1]/table4b[,-1] * 10000
+  
+```
+
+Q9: Refaça o gráfico da questão 7 para os dados apresentados em table2.
+```{r, fig.align='center'}
+ggplot(table2 %>% filter(type == "cases"), aes(year, count, color = country)) + 
+   geom_line() + scale_x_continuous(breaks = c(1999,2000))
+```
+
+Como o gráfico ficou com valores quebrados entre os anos de 1999 e 2000, resolvi colocar a função breaks para aparecer apenas os 2 anos. 
+
+Q10: Utilizando o comando gather, transforme table4a em um objeto no formato tidy. Armazene o resultado num objeto chamado  tidy4a.
+```{r}
+tidy4a <- gather(table4a,year,cases, c(`1999`,`2000`))
+```
+
+Q11: Refaça o item 10 para o objeto table4b. Armazene o resultado num objeto chamado tidy4b.
+```{r}
+tidy4b <- gather(table4b,year,population, c(`1999`,`2000`))
+```
+
+Q12: Combine os objetos tidy4a e tidy4b em um único objeto, utilizando o comando left_join. Apresente uma explicação textual sobre o que faz o referido comando.
+```{r}
+left_join(tidy4a, tidy4b) 
+```
+Este comando junta os elementos da tabela tidy4a, (`COUNTRY`,`YEAR`), que fazem correspondência com a tabela tidy4b. E as linhas nas tabelas que não tiverem correspondência tem valores NA nas novas colunas criadas. 
+
+Q13: Use o comando spread para tranformar o objeto table2 em um objeto com formato tidy.
+```{r}
+table2 %>% spread(type, count)
+```
+
+Q14: Observe que a coluna rate do objeto table3 é um texto mostrando a fração que formaria a taxa de casos de tuberculose. Transforme o objeto table3 em um objeto com formato tidy separando a coluna 3 em duas outras colunas: cases e population, utilizando o comando separate. Utilize o argumento convert para transformar o resultado em um objeto numérico.
+```{r}
+table3 %>% separate(rate, c("cases", "population"), convert = TRUE) 
+```
+
+Importação de Dados
+Realize o download dos dados disponibilizados no link https://www.kaggle.com/usdot/flight-delays. Descompacte o arquivo resultante e você terá 3 arquivos disponíveis:
+
+airlines.csv;
+airports.csv;
+flights.csv;
+
+Q15: Crie uma variável chamada path, que armazenará o caminho completo até os arquivos supracitados.
+```{r}
+#caminho onde coloquei os arquivos utilizados
+path = "/home/pessoal/Downloads"
+```
+
+Q16: Instale o pacote readr e importe cada um dos arquivos utilizando o comando read_csv de maneira apropriada. Adicione a chave  cache=TRUE na definição do bloco de código (chunk), de forma a acelerar a importação dos dados em execuções futuras do Rmd.
+```{r, message = FALSE, warning = FALSE, eval = FALSE}
+install.packages("readr")
+```
+
+```{r, cache = TRUE, message = FALSE}
+library("readr")
+airlines = read_csv(file.path(path, "airlines.csv"))
+airports = read_csv(file.path(path, "airports.csv"))
+flights = read_csv(file.path(path, "flights.csv"))
+```
+
+Q17: Para cada mês, qual foi o vôo (no formato ORIGEM-DESTINO, ex., ANC-SEA) que apresentou o maior atraso médio na chegada (ARRIVAL_DELAY)? Para realização deste item, ignore todos os vôos que partiram de aeroportos cujos símbolos começam com o número 1. Armazene o resultado em um objeto chamado atrasos e denomine a coluna de atrasos médio de ATRASO
+```{r, message = FALSE}
+
+Atrasos <- flights %>% 
+  #filtrando todos os aeroportos que começam com 1 no código numérico e ignorando-os
+  filter(!startsWith(ORIGIN_AIRPORT, "1")) %>% 
+  #removendo "ORIGIN_AIRPORT" e "DESTINATION_AIRPORT" e criando a coluna "VOO", unindo-os
+  unite(col = "VOO", c("ORIGIN_AIRPORT", "DESTINATION_AIRPORT"), sep = "-") %>% 
+  #selecionando as colunas que quero mostrar e agrupando por "MONTH" e "VOO"
+  select(MONTH, VOO,ARRIVAL_DELAY) %>% 
+  group_by(MONTH, VOO) %>% 
+  #calcula a média de atraso ignorando os valores NA
+  summarise(ATRASO = mean(ARRIVAL_DELAY, na.rm = TRUE)) %>% 
+  #mostra em cada mês qual o voo que mais atrasou   
+  top_n(1) 
+
+```
+
+Q18: Para os vôos mais atrasados encontrados acima, modifique a tabela de forma a adicionar o nome completo de cada aeroporto (use o comando left_join) e também a cidade do aeroporto. Para isso, importe o arquivo airports.csv. A tabela resultante deverá ter as seguintes colunas:
+
+observação: sobrescreva o objeto atrasos com o resultado desta operação.
+
+MONTH
+ORIGEM
+DESTINO
+ATRASO
+AIRPORT_ORIGEM
+CITY_ORIGEM
+AIRPORT_DESTINO
+CITY_DESTINO
+
+```{r, message = FALSE}
+#carregando o pacote para usar "%<>%"
+library("magrittr")
+
+#separando a variável "VOO" em duas
+Atrasos = Atrasos %>% 
+  separate("VOO", into = c("ORIGEM", "DESTINO"))
+
+#selecionando as colunas que preciso de airports
+airports %<>% select(IATA_CODE, AIRPORT, CITY) 
+
+#Junta Atrasos e airports por "ORIGEM" e "IATA_CODE"
+Atrasos = left_join(Atrasos, airports, by = c("ORIGEM" = "IATA_CODE")) 
+
+#Junta Atrasos e airports por "DESTINO" e "IATA_CODE"
+Atrasos = left_join(Atrasos, airports, by = c("DESTINO" = "IATA_CODE"))
+
+#muda o nome das colunas criadas com o comando acima 
+names(Atrasos) = c("MONTH", "ORIGEM", "DESTINO","ATRASO",
+                   "AIRPORT_ORIGEM","CITY_ORIGEM","AIRPORT_DESTINO","CITY_DESTINO")
+
+```
+
+Q19: Apresente o resultado obtido na questão acima
+```{r}
+Atrasos
+```
+
+
+
+
