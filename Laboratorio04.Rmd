@@ -1,0 +1,159 @@
+---
+title: "Dados relacionais e operações do tipo join"
+author: "Elizabeth Borgognoni Souto"
+date: "August 29, 2018"
+output: html_document
+---
+
+#Introdução
+
+Conjuntos de dados estruturados costumam ser divididos em múltiplas tabelas. A razão para isso é a minimização de duplicação de informação. Por este motivo, uma tarefa habitualmente realizada em manipulação de bases de dados é a combinação de dados de diferentes origens.
+
+#Objetivos
+Ao fim deste laboratório, você deve ser capaz de combinar duas tabelas de dados, de forma que, na tabela resultante, sejam mantidos registros que existam:
+
+* em ambas as tabelas;
+* apenas na primeira tabela;
+* apenas na segunda tabela;
+* em alguma das duas tabelas.
+Adicionalmente, você deve ser capaz de identificar registros que existam:
+
+* apenas na primeira tabela;
+* apenas na segunda tabela;
+
+#Instalação de pacotes essenciais
+Os pacotes que são essenciais para a execução deste laboratório podem ser instalados de acordo com o snippet abaixo. Execute esta instalação antes de tentar criar um novo documento RMarkdown. Se o sistema perguntar sobre instalar novos pacotes a partir do código-fonte (install newer version from source), responda n (para indicar não).
+
+Instalando o snippet
+```{r, eval = FALSE, warning=FALSE, message = FALSE}
+#no caso nao coloquei win.binary pois estou trabalhando no Rstudio do ubuntu
+options(install.packages.check.source = "no")
+packages = c("tidyverse","maps","RColorBrewer","rmarkdown",
+             "knitr","caTools")
+install.packages(packages)
+```
+
+```{r, warning=FALSE, message = FALSE}
+library("tidyverse")
+library("maps")
+library("RColorBrewer")
+library("rmarkdown")
+library("knitr")
+library("caTools")
+```
+
+#Atrasos de vôos
+Considere novamente o problema de atrasos de vôos, disponível em https://www.kaggle.com/usdot/flight-delays. Nesta atividade, além dos dados de flights.csv, nós iremos utilizar informação disponível nos arquivos airlines.csv e airports.csv.
+
+1.Importe, utilizando o pacote readr, cada um dos três arquivos disponíveis. Os objetos resultantes devem ser chamados flights,  airlines e airports.
+
+* a.Para o arquivo de vôos, importe apenas as colunas DESTINATION_AIRPORT e ARRIVAL_DELAY.
+* b.Para o arquivo de aeroportos, importe apenas as colunas IATA_CODE, CITY e STATE
+
+```{r, cache = TRUE, message = FALSE}
+#importacao dos dados
+path = "/home/elizabeth/Downloads"
+setwd(path)
+flights = read_csv("flights.csv", col_types = cols_only(DESTINATION_AIRPORT ='c', 
+                                                        ARRIVAL_DELAY = 'i'))
+airports = read_csv("airports.csv", col_types = cols_only(IATA_CODE = 'c', 
+                                                          CITY = 'c',
+                                                          STATE = 'c'))
+airlines = read_csv("airlines.csv")
+```
+
+2.Organize a tabela flights:
+
+* a.remova vôos em que o aeroporto de destino comece com a letra 1;
+* b.remova registros em que o valor da variável ARRIVAL_DELAY seja faltante;
+* c.para cada aeroporto de destino, determine o atraso médio na chegada para os vôos que ali aterrissaram. Este atraso médio deve ser armazenado na coluna MEAN_DELAY.
+* d.a tabela resultante deve ser armazenada (novamente, de forma a sobrescrever o objeto anterior) em flights.
+
+```{r}
+flights <- flights %>% 
+  filter(!startsWith(DESTINATION_AIRPORT, "1"), !is.na(ARRIVAL_DELAY)) %>%
+  group_by(DESTINATION_AIRPORT) %>%
+  summarise(MEAN_DELAY = mean(ARRIVAL_DELAY))
+```
+
+3. Selecione a operação apropriada join para incluir, na tabela flights, as colunas CITY e STATE. Para executar esta tarefa:
+
+* a.Identifique a coluna que é a chave na tabela flights;
+* b.Identifique a coluna que é a chave na tabela airports;
+* c.Apresente o comando que combine ambas as tabelas, indicando explicitamente as chaves;
+* d.Armazene a tabela resultante no objeto flights.
+
+```{r}
+flights <- right_join(flights, airports, by = c("DESTINATION_AIRPORT" = "IATA_CODE"))
+```
+
+4. Para cada estado de chegada:
+
+* a.Determine a média do atraso médio na chegada e chame esta variável de STATE_DELAY;
+* b.Agrupe a variável STATE_DELAY em quartis (utilizando as funções cut e quantile), lembrando-se de incluir a classificação para o menor dos valores (explore o comando cut para descobrir o argumento responsável por isso). Armazene os resultados na variável  COLOR_CODE.
+* c.O objeto que conterá todos estes resultados deve ser chamado toMap.
+
+```{r}
+#comando quantile devolve os 5 quartis  
+toMap <- flights %>% group_by(STATE) %>%
+  summarise(STATE_DELAY = mean(MEAN_DELAY)) %>%
+  mutate(COLOR_CODE = cut(STATE_DELAY, quantile(STATE_DELAY),
+                          include.lowest = TRUE, 
+                          labels = FALSE))
+```
+
+5.O pacote maps fornece geometrias para fronteiras entre estados. Apresente o mapa estadual utilizando o comando map.
+
+```{r, fig.align='center'}
+#ele acessa 2 objetos internos como descrito na questao 6 , state.abb e state.name
+map("state")
+```
+
+6.Crie um objeto chamado info, da classe tibble, contendo duas colunas:
+
+* a.STATE: cujo valor será o conteúdo do vetor state.abb;
+* b.STATE_NAME: cujo valor será o conteúdo do vetor state.name.
+
+```{r}
+info <- tibble(STATE = state.abb, STATE_NAME = state.name)
+```
+
+7.Utilize comandos join para responder:
+
+* a.Que “estados” aparecem listados em toMap e estão ausentes em info? Armazene estes registros num objeto chamado  faltantes.
+* b.Crie um objeto chamado info_completa que possua todas as informações (STATE, STATE_DELAY, COLOR_CODE, STATE_NAME) apenas para estados listados em ambas as tabelas, toMap e info.
+* c.Crie um objeto chamado banco_completo que possua todos os registros, independente de termos o nome de estado ou não.
+
+```{r}
+#uso anti_join para ver quais sao as colunas que nao tem info e tem em toMap
+faltantes <- anti_join(toMap,info, by ="STATE")
+
+#inner_join busca os registros que existem em ambas(chaves iguais) e coloca em apaenas uma tabela
+info_completa <- inner_join(toMap, info, by = "STATE")
+
+#full_join junta todos os registros
+banco_completo <- full_join(toMap,info, by = "STATE")
+```
+
+8.Produza um mapa que apresente o atraso médio na chegada por estado. 
+
+* a.Confirme que a tabela info_completa esteja na mesma ordem que info (caso não esteja na mesma ordem, ordene  info_completa de forma que tenha a mesma ordem que info).
+* b.Utilizando o pacote RColorBrewer, com o comando brewer.pal, extraia 4 cores (associadas com a coluna COLOR_CODE de  info_completa) da paleta de cores YlOrRd (brewer.pal(4, 'YlOrRd')). Crie um tibble, chamado cores, com duas colunas: COLOR_CODE e COLOR.
+* c.Combine info_completa com cores utilizando o join apropriado. Armazene o resultado, novamente, em info_completa.
+* d.Refaça o mapa do item 5., adicionando os argumentos fill=TRUE e col=info_completa$COLOR.
+
+```{r, fig.align='center'}
+#melhor solucao para poucas observacoes investigando o objeto
+#info_completa <- info_completa %>% arrange(STATE_NAME)
+
+#melhor solucao para muitos observacoes sem precisar investigar o objeto
+idx <- match(info$STATE, info_completa$STATE)
+info_completa <- info_completa[idx,]
+cores <- tibble(COLOR_CODE = 1:4, COLOR = brewer.pal(4, 'YlOrRd'))
+info_completa <- right_join(cores, info_completa, by = "COLOR_CODE")
+map("state", fill = TRUE, col = info_completa$COLOR)
+```
+
+
+
+
