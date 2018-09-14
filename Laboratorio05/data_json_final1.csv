@@ -1,0 +1,13 @@
+gender,marital_status,device,18-24,25-34,35-44,45-54,55+
+F,married,android,187,122,128,149,137
+F,married,iOS,336,251,283,270,298
+F,single,android,189,147,136,134,114
+F,single,iOS,189,146,151,156,134
+M,married,android,178,130,135,121,118
+M,married,iOS,322,281,278,253,270
+M,single,android,185,120,151,133,146
+M,single,iOS,183,149,150,144,145
+U,married,android,107,61,68,57,66
+U,married,iOS,195,154,156,160,172
+U,single,android,105,59,64,67,64
+U,single,iOS,98,54,77,61,70
