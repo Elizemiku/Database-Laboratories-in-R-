@@ -1,0 +1,200 @@
+---
+title: "Manipulação de Dados - JSON"
+author: "Elizabeth Borgognoni Souto"
+date: "September 5, 2018"
+output: html_document
+---
+
+#Instalação de pacotes essenciais
+
+Os pacotes que são essenciais para a execução deste laboratório podem ser instalados de acordo com o snippet abaixo. Execute esta instalação antes de tentar criar um novo documento RMarkdown. Se o sistema perguntar sobre instalar novos pacotes a partir do código-fonte (install newer version from source), responda n (para indicar não).
+
+```{r, eval = FALSE, message=FALSE}
+#no caso nao coloquei win.binary pois estou trabalhando no Rstudio do ubuntu
+options(install.packages.check.source = "no")
+pkgs = c('tidyverse', 'maps', 'RColorBrewer', 
+         'rmarkdown', 'knitr', 'caTools', 'tidyr',
+         'jsonlite', 'dplyr', 'tibble', 'digest',
+         'magrittr', 'lubridate')
+install.packages(pkgs)
+```
+
+```{r, message = FALSE, warning=FALSE}
+#carregando os pacotes
+library("tidyverse")
+library("maps")
+library("RColorBrewer")
+library("rmarkdown")
+library("knitr")
+library("caTools")
+library("tidyr")
+library("jsonlite")
+library("dplyr")
+library("tibble")
+library("digest")
+library("magrittr")
+library("lubridate")
+```
+
+
+#Arquivos JSON
+
+JavaScript Object Notation é um formato amplamente utilizado, principalmente em recursos de internet, para armazenar informações em um modo que seja relativamente fácil de acessar. O foco desta estratégia de armazenamento é prover mecanismos simples para busca de dados. Um registro JSON é sempre apresentado dentro de chaves e representado por uma coleção de pares chave/valor. Cada um destes pares é apresentado sempre da seguinte maneira 'chave': 'valor'. Múltiplos pares são sempre separados por vírgula. Um exemplo de registro é:
+
+
+```{JSON}
+#campos separados por virgula
+{
+  "nome": "Benilton",
+  "sobrenome": "Carvalho",
+  "escolaridade": "Ph.D.",
+  "orientador": "Rafael Irizarry",
+  "area": "Bioestatistica",
+  "universidade": "Johns Hopkins University",
+  "ano": "2008"
+}
+
+```
+
+Múltiplos registros JSON podem ser combinados em um único objeto com o uso de colchetes delimitando o objeto resultante e vírgulas, separando cada um dos registros. Por exemplo:
+
+```{JSON}
+[{
+  "nome": "Benilton",
+  "sobrenome": "Carvalho",
+  "escolaridade": "Ph.D.",
+  "orientador": "Rafael Irizarry",
+  "area": "Bioestatistica",
+  "universidade": "Johns Hopkins University",
+  "ano": "2008"
+},
+
+{
+  "nome": "Guilherme",
+  "sobrenome": "Ludwig",
+  "escolaridade": "Ph.D.",
+  "orientador:" "Jun Zhu",
+  "area": "Estatistica",
+  "universidade": "University of Wisconsin-Madison",
+  "ano": "2016"
+}]
+
+```
+
+#Manipulação de Objetos JSON em R
+
+O pacote jsonlite pode ser utilizado para a manipulação de objetos JSON. O comando fromJSON recebe uma entrada em formato JSON e a converte para um objeto apropriado em R (vetor, matriz ou data.frame). O comando toJSON trabalha na direção oposta, recebendo um objeto em R e convertendo-o para JSON.
+
+A leitura de um arquivo JSON pode ser feita utilizando o comando read_json deste mesmo pacote jsonlite. O comando read_json possui um segundo argumento chamado simplifyVector, que assume o valor FALSE por padrão. O argumento simplifyVector=FALSE causa com que o objeto resultante seja uma lista; com simplifyVector=TRUE, o resultado é convertido para um objeto R mais apropriado (data.frame).
+
+#Descrição dos Dados
+
+Uma start-up norte-americana disponibilizou uma plataforma de crowdsourcing para plataformas móveis iOS e Android. Usuários, após um cadastro inicial, podem visitar páginas de projetos e escolher contribuir com um valor monetário. Estes eventos de visita e contribuição financeira são registradas no campo `event_name`, do arquivo `data.json` disponibilizado, como View Project e Fund Project. O arquivo também disponibiliza informações dadas durante o cadastro:
+
+* gender: sexo - F (female), M (male), U (unknown);
+* age: idade - 18-24, 25-34, 35-44, 45-54 ou 55+;
+* marital_status: estado civil - single ou married;
+* device: iOS ou android
+* latitude: latitude
+* longitude: longitude
+* city: cidade
+* state: estado
+* zip_code: CEP
+
+Para os 50 mil registros disponibilizados, informam-se também a categoria (category) do projeto visitado/financiado, a quantia doada (amount) quando o usuário decidiu financiar o projeto e a data/hora (formato UNIX a partir de 01 de janeiro de 1970) no fuso-horário GMT. 
+
+#Atividade
+
+Você deve apresentar um relatório técnico-gerencial (isto é, deve conter texto claro, gramaticalmente e ortograficamente correto combinado com código em R) que responda às seguintes questões:
+
+```{r}
+#as viariaveis acima sao estaticas e fazem parte das caracteristicas dos usuarios
+#importando o arquivo e manipulando os dados
+setwd("/home/elizabeth/Downloads/data.json")
+data_json = read_json("data.json", simplifyVector = TRUE)
+data_json = data_json$data #faco isso pois e uma lista
+dim(data_json) #para analisar a dimensao do data frame
+str(data_json) #para analisar a estrutura do data frame
+#a coluna 9 e o outro dataframe  (em json podemos ter um dataframe dentro de outro)
+data_json = cbind(data_json[,-9], data_json[,9])
+dim(data_json)
+#transformando em tibble
+data_json = as_tibble(data_json)
+```
+
+* Quantos usuários diferentes utilizaram a plataforma no período coletado?
+```{r, message= FALSE}
+#para descobrir quantos usuarios diferentes temos que criar uma chave usando todas as variavies estaticas 
+#client_time numero de segundos , momento que ele acessou a rede
+user = data_json %>%
+  select(gender,age,marital_status,device,latitude,longitude,city,state,zip_code) %>%
+  distinct()  #da os valores que sao distintos um do outro como o comando unique
+
+user$user_id = 1:nrow(user) #da linha 1 ate a ultima linha
+data_json = data_json %>% inner_join(user) #para juntar ambas as chaves estaticas
+```
+Em `data_json` se 2 pessoas estiverem morando na mesma casa e usarem o mesmo computador sera identificado como a mesma pessoa. A quantidade de usuários diferentes que utilizaram a plataforma foram `r length(unique(data_json$user_id))`.
+
+* Qual é a distribuição de perfis dos usuário de acordo com as variáveis gender, age, marital_status e device? Apresente uma tabela com contagens de usuários em cada classe. A tabela final deve ter as seguintes colunas: gender, marital_status, device,  18-24, 25-34, 45-54, 55+. Insira a tabela no texto utilizando o comando knitr::kable.
+```{r}
+data_json1 = data_json %>%
+  select(gender, age, marital_status, device, user_id) %>%
+  distinct() %>% #para pegar os identificadores
+  select(-user_id) %>% #para remover user_id 
+  group_by(gender, age, marital_status, device) %>%
+  count() %>% #ou uso summarise com a funcao n() 
+  spread(age, n) #abre o que estiver em age
+```
+
+```{r}
+#knitr::kable p mostrar a tabela
+knitr::kable(data_json1)
+```
+
+* Existe a suspeita de que o número de indivíduos que utilizam iOS é maior que o número de usuários de Android nos grupos de pessoas casadas. Apresente um gráfico, utilizando ggplot2, que mostre se esta suspeita é plausível. O gráfico deve incluir as informações de sexo, idade e estado civil.
+```{r, fig.align='center'}
+
+data_json2 = data_json %>%
+  select(gender, age, marital_status, device, user_id) %>%
+  distinct() %>% 
+  group_by(gender, age, marital_status, device) %>%
+  count() 
+
+ggplot(data_json2 %>% filter(marital_status == "married"), aes(device, n, fill = device)) +
+         geom_bar(stat="identity") + facet_grid(gender ~ age)
+```
+
+* Qual é a distribuição geográfica destes usuários em função do nome do estado? Qual é o estado que possui o maior número de usuários da plataforma de crowdsourcing?
+```{r}
+#distribuicao dos usuarios onde eles moram em termo de estado
+data_json3 = data_json %>% 
+  select(state, user_id) %>%
+  distinct() %>%
+  group_by(state) %>%
+  count() %>%
+  ungroup() %>% #para desagrupar
+  top_n(1) #para selecionar as observacoes por estado que tem o maior numero de usuarios  
+```
+
+* Para cada nível de category, considere apenas os usuários únicos que viram ou financiaram projetos daquela categoria. Agrupe estes usuários por sexo, idade, estado civil e dispositivo. Para cada um destes grupos, qual é o percentual de financiamento dos projetos? Apresente o resultado em uma tabela com as seguintes colunas: category, gender, marital_status, device, 18-24, 25-34,  35-44, 45-54 e 55+.
+```{r}
+data_json_final = data_json %>%
+  #pego o amount que e a quantidade de dinheiro que ele financiou
+  mutate(finance = !is.na(amount)) %>%
+  select(category, gender, age, marital_status, device, user_id, finance) %>%
+  group_by(category,user_id,gender,marital_status,device,age) %>%
+  summarise(decision = any(finance)) %>%
+  group_by(category, gender, marital_status, device, age) %>%
+  summarise(Perc_Finan = mean(decision)) %>%
+  spread(age, Perc_Finan)
+```
+
+* Exporte todas as tabelas criadas para arquivos CSV.
+```{r}
+write_csv(data_json, path = "data_json_final.csv")
+write_csv(data_json1, path = "data_json_final1.csv")
+write_csv(data_json2, path = "data_json_final2.csv")
+write_csv(data_json3, path = "data_json_final3.csv")
+write_csv(data_json_final, path = "data_json_final4.csv")
+```
+
