@@ -1,0 +1,118 @@
+---
+title: "SQLite"
+author: "Elizabeth Borgognoni Souto"
+date: "3 de outubro de 2018"
+output: html_document
+---
+
+#SQLite
+
+O SQLite é uma biblioteca embutida em um processo único que é autônomo, não necessita de servidor e exige zero de configuração. O código é de domínio público e seu uso é gratuito em qualquer tipo de utilização. Trata-se de um sistema SQL completo, capaz de utilizar múltiplas tabelas, índices, gatilhos e visões. Ele funciona, virtualmente, em qualquer plataforme (incluindo móveis) e pesa cerca de 600KB.
+
+#Objetivos
+
+Ao fim deste laboratório, você deverá ser capaz de: - Conectar-se a um banco de dados do tipo SQLite utilizando o R como interface; - Explorar quais são as tabelas disponíveis no referido banco de dados; - Identificar quais são as colunas de uma dada tabela existente no banco de dados; - Realizar pesquisas simples; - Extrair registros do banco de dados e armazená-las em objetos do R; - Realizar pesquisas mais complexas, utilizando WHERE, GROUP BY, INNER JOIN, HAVING, LIMIT, DISTINCT e GLOB.
+
+#Instalação de pacotes essenciais
+
+Os pacotes que são essenciais para a execução deste laboratório podem ser instalados de acordo com o snippet abaixo. Execute esta instalação antes de tentar criar um novo documento RMarkdown. Se o sistema perguntar sobre instalar novos pacotes a partir do código-fonte (install newer version from source), responda n (para indicar não).
+
+```{r, eval = FALSE}
+options(install.packages.check.source = "no")
+pkgs = c('tidyverse', 'maps', 'RColorBrewer', 
+         'rmarkdown', 'knitr', 'caTools', 'tidyr',
+         'jsonlite', 'dplyr', 'tibble', 'digest',
+         'magrittr', 'tidyr', 'RSQLite')
+install.packages(pkgs, type='win.binary')
+```
+
+```{r, message = FALSE, warning= FALSE}
+library("tidyverse")
+library("maps")
+library("RColorBrewer")
+library("rmarkdown")
+library("knitr")
+library("caTools")
+library("tidyr")
+library("jsonlite")
+library("dplyr")
+library("tibble")
+library("digest")
+library("magrittr")
+library("RSQLite")
+```
+
+#Recomendações Gerais
+
+* Não inicie a atividade sem instalar os pacotes acima;
+* Não inicie a atividade se houver erro na instalação acima;
+* Toda manipulação de dados deve ocorrer com verbos do pacote dplyr.
+* O livro `R for Data Science` possui um excelente capítulo sobre strings.
+
+#Atividade
+
+1.Baixe o arquivo `disco.db` e armazene na variável path o caminho completo (pasta) na qual o arquivo foi gravado. Utilize o comando  `file.path()` para combinar a variável path com o nome do arquivo (disco.db) e obter o nome do arquivo com seu respectivo caminho. Armazene este resultado na variável fname.
+```{r}
+path = ("C:/Users/170409/Downloads")
+fname = file.path(path, "disco.db")
+```
+
+2.Utilizando o pacote RSQLite, conecte-se ao arquivo de banco de dados. Armazene a conexão na variável conn.
+```{r}
+conn <- dbConnect(SQLite(),fname)
+```
+
+3.Liste as tabelas existentes no banco de dados.
+```{r}
+dbListTables(conn)
+```
+
+4.Identifique os nomes de todas as colunas existentes na tabela customers.
+```{r}
+dbListFields(conn,'customers')
+```
+
+5.Utilizando apenas SQLite, com o apoio do comando dbGetQuery, identifique quantos clientes estão atualmente cadastrados neste banco de dados.
+```{r}
+dbGetQuery(conn, 'SELECT COUNT(CustomerID) FROM customers')
+```
+
+6.Utilizando apenas SQLite, identifique o número de países diferentes em que moram os clientes encontrados acima.
+```{r}
+dbGetQuery(conn, 'SELECT COUNT(DISTINCT(COUNTRY)) FROM customers')
+```
+
+7.Utilizando apenas SQLite, quantos clientes existem por país? A tabela resultante deve conter o nome do país e a respectiva contagem, além de ser ordenada de maneira decrescente pela referida contagem.
+```{r}
+dbGetQuery(conn, 'SELECT COUNTRY,CustomerID FROM customers GROUP BY COUNTRY ORDER BY -CustomerID')
+```
+
+8.Quais são os 5 países com mais clientes registrados? Use apenas SQLite.
+```{r}
+dbGetQuery(conn, 'SELECT COUNTRY,CustomerID FROM customers GROUP BY COUNTRY ORDER BY -CustomerID LIMIT 5' )
+```
+
+9.Quais são os países registrados que possuem apenas 6 letras no nome?
+```{r}
+#como GLOB nao aceita muito bem o modelo de regex coloco para ele encontrar qualquer caractere 6 vezes
+dbGetQuery(conn, "SELECT DISTINCT(COUNTRY) FROM customers WHERE COUNTRY GLOB '??????'")
+```
+
+10.Quais foram as músicas compradas por clientes brasileiros?
+```{r}
+#dbGetQuery(conn, 'SELECT tracks.trackid, name FROM tracks INNER JOIN invoice_items ON invoice_items.trackid=tracks.trackid')
+# o parenteses serve para colocar isso como uma subtabela 
+
+dbGetQuery(conn, paste('SELECT DISTINCT name FROM invoice_items',
+                       'INNER JOIN tracks ON tracks.trackid=invoice_items.trackid', 
+                       'WHERE invoiceid IN',
+                       '(SELECT DISTINCT InvoiceId FROM customers',
+                       'INNER JOIN invoices ON invoices.customerid = customers.customerid',
+                       'WHERE COUNTRY ="Brazil")'))
+```
+
+11.Desconecte do banco de dados.
+```{r}
+dbDisconnect(conn)
+```
+
