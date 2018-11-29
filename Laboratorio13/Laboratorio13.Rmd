@@ -1,0 +1,296 @@
+---
+title: "Webscraping"
+author: "Elizabeth Borgognoni Souto"
+date: "30 de outubro de 2018"
+output:
+  html_document: default
+---
+
+#Organizando uma base de dados extraída da internet
+Ao fim desta atividade, você deverá ser capaz de:
+
+* Extrair dados de uma página da Web sem acessar um API, usando o pacote rvest.
+* Armazenar os dados extraídos em um banco de dados do tipo SQLite.
+* Utilizar as ferramentas obtidas ao longo do curso para produzir uma análise dos dados extraídos.
+
+Vocês terão um prazo de uma semana para concluir a atividade. Recomendamos que você consiga desenvolver a lógica de extração da base de dados durante o laboratório, e termine a atividade com uma análise dos dados obtidos, que mostre seu domínio sobre as técnicas desenvolvidas durante o curso, tais como:
+
+* Manipulação da estrutura dos dados.
+* Ligação de tabelas através dos comandos do tipo join.
+* Limpeza da informação usando funções do R ou expressões regulares.
+
+#Instalação de pacotes essenciais
+Os pacotes que são essenciais para a execução deste laboratório podem ser instalados de acordo com o snippet abaixo. Execute esta instalação antes de tentar criar um novo documento RMarkdown. Se o sistema perguntar sobre instalar novos pacotes a partir do código-fonte (install newer version from source), responda n (para indicar não).
+
+```{r, warning= FALSE, message = FALSE}
+#Como fiz no linux tirei o win.binary
+#E quando tentar gerar o html sem instalar os arquivos da problema com a funçao read_html
+options(install.packages.check.source = "no")
+pkgs = c('tidyverse', 'rmarkdown', 'knitr', 'caTools', 
+         'magrittr', 'RSQLite', 'httr', 'rvest', 'dbplyr', 'xml2')
+install.packages(pkgs)
+```
+
+```{r, warning= FALSE, message = FALSE}
+library("tidyverse")
+library("rmarkdown")
+library("knitr")
+library("caTools")
+library("magrittr")
+library("RSQLite")
+library("httr")
+library("rvest")
+library("dbplyr")
+library("xml2")
+```
+
+
+Você também precisará do `SelectorGadget`, uma ferramenta do navegador Chrome que permite descobrir elementos de CSS disponíveis em uma página. Em tese, não é preciso instalar a extensão (basta arrastar um bookmarklet para a barra de favoritos, segundo o site).
+
+#Recomendações Gerais
+
+* Não inicie a atividade sem instalar os pacotes acima;
+* Não inicie a atividade se houver erro na instalação acima;
+* Toda manipulação de dados deve ocorrer com verbos do pacote dplyr ou consultas em SQL.
+
+#Atividade
+Nesta atividade, vocês devem desenvolver uma base de dados com informações capturadas da internet. Vocês podem usar a wikipedia como fonte, ou outros sites de seu interesse. Por exemplo, páginas como a da Secretaria de Segurança Pública de São Paulo (http://www.ssp.sp.gov.br/Estatistica/Pesquisa.aspx), o site Chance de Gol (http://www.chancedegol.com.br/), sites com Letras de Música (por exemplo, https://genius.com/) ou listas de artistas (https://www.last.fm/) ou de filmes (https://www.imdb.com/); em princípio, vocês devem buscar criar uma base de dados razoavelmente complexa para mostrar seu domínio sobre as técnicas desenvolvidas. Algumas sugestões de listas da wikipedia podem ajudá-los:
+
+https://en.wikipedia.org/wiki/List_of_sovereign_states
+
+https://en.wikipedia.org/wiki/List_of_notable_20th-century_writers
+
+https://en.wikipedia.org/wiki/List_of_women_writers
+
+https://en.wikipedia.org/wiki/List_of_Spanish_painters
+
+https://en.wikipedia.org/wiki/List_of_current_members_of_the_United_States_Senate
+
+https://en.wikipedia.org/wiki/List_of_FIFA_Club_World_Cup_participants
+
+Mas vocês estão livres para executar a atividade com tópicos do seu interesse.
+
+#Note:
+Como o Moodle não permite o envio de bancos de dados, você deverá escrever código que gerará o banco para nós. Recomendamos que vocês salvem o banco com o nome idêntico ao seu ra. Por exemplo, se seu ra for 123456, nomeie seu banco de dados como "123456.db". As análises podem ser feitas em um arquivo .Rmd, que produz o banco de dados e gera o relatório com suas análises.
+
+#Atividade:
+
+#Sobre minha escolha:
+
+Escolhi a página sobre vocaloids no wikipedia, vocaloid é um software de síntese de voz que tem personagens que cantam utilizando vozes humanas gravadas nesse software e modificadas computacionalmente. O software usa a tecnologia de sintetização com vocais especialmente gravados de atores de voz ou cantores. Para criar uma música, o usuário deve inserir a melodia e letra. Uma interface tipo rolo de piano é usada para inserir a melodia e as letras podem ser inseridas em cada nota. O software pode mudar a velocidade das pronúncias, adicionar efeitos como vibrato, ou alterar a dinâmica e/ou tom da voz. Cada VOCALOID é vendido como "um cantor em uma caixa", projetado para atuar como um substituto para um cantor real. Cada número na frente de vocaloid é uma versão nova do software. Apenas peguei os vocaloids que são usados para todas as plataformas, pois tem também os bancos de voz privados que não são vendidos, e os bancos de voz apenas para MAC. 
+
+#Tabelas de interesse
+
+```{r}
+webpage <- read_html("https://pt.wikipedia.org/wiki/Vocaloid")
+ 
+#Encontrei no site 8 tabelas como o nome "table.wikitable" 
+tabelas <- webpage %>%
+    html_nodes("table.wikitable") 
+
+#Selecionando as tabelas e passando para uma conexao SQL 
+vocaloids = dbConnect(SQLite(), "170409.db")
+dbWriteTable(vocaloids,"vocaloid", tabelas[[1]] %>% html_table(fill = TRUE))
+dbWriteTable(vocaloids,"vocaloid2", tabelas[[2]] %>% html_table(fill = TRUE))
+dbWriteTable(vocaloids,"vocaloid3", tabelas[[3]] %>% html_table(fill = TRUE))
+dbWriteTable(vocaloids,"vocaloid4", tabelas[[4]] %>% html_table(fill = TRUE))
+dbWriteTable(vocaloids,"vocaloid5", tabelas[[5]] %>% html_table(fill = TRUE))
+```
+
+#Limpeza dos dados
+
+* Obs: Minha variavel Data de Lançamento tem problema quando carrego a tabela no windows, usei o ubuntu. 
+
+Como quero trabalhar com o `dplyr` nos dados do `SQL` vou usar o pacote `dbplyr`
+```{r}
+vocaloid = tbl(vocaloids, "vocaloid", na = NA) 
+vocaloid2 = tbl(vocaloids, "vocaloid2", na = NA)
+vocaloid3 = tbl(vocaloids, "vocaloid3", na = NA)
+vocaloid4 = tbl(vocaloids, "vocaloid4", na = NA)
+vocaloid5 = tbl(vocaloids, "vocaloid5", na = NA)
+```
+
+Criando a nova coluna `Versao_Vocaloid` para eu poder juntar os dataframes depois e poder separar de qual versão de vocaloid o personagem é. 
+```{r}
+vocaloid = vocaloid %>% select(1:6) %>% mutate(Versao_Vocaloid = "V1") 
+vocaloid2 = vocaloid2 %>% select(1:6) %>% mutate(Versao_Vocaloid = "V2")
+vocaloid3 = vocaloid3 %>% select(1:6) %>% mutate(Versao_Vocaloid = "V3")
+vocaloid4 = vocaloid4 %>% select(1:6) %>% mutate(Versao_Vocaloid = "V4")
+vocaloid5 = vocaloid5 %>% select(1:6) %>% mutate(Versao_Vocaloid = "V5")
+```
+
+Usando o comando `bind_rows` do `dplyr` para juntar as linhas dos dataframes e transformar todos num só diferenciando a versão do Vocaloid. 
+```{r}
+VOCALOIDS = bind_rows(as.tibble(vocaloid), bind_rows(as.tibble(vocaloid2), bind_rows(as.tibble(vocaloid3), bind_rows(as.tibble(vocaloid4),as.tibble(vocaloid5)))))
+```
+
+Agora posso fazer a limpeza dos meus dados:
+```{r}
+#Analisando o banco de dados
+glimpse(VOCALOIDS)
+
+#Colocando os valores faltantes como NA
+VOCALOIDS[VOCALOIDS == ""] <- "NA"
+
+#mudando alguns nomes
+VOCALOIDS = VOCALOIDS %>% 
+  rename(Personagem = Produto,  Provedor_da_voz = `Fornecedor(a) de Voz`)
+
+#Corrigindo alguns erros na tabela usando essa funcao
+lookup <- function(x, table) {
+    table[as.character(x)]
+} 
+
+#Analisando os nomes que quero mudar, o comando distinct não funciona
+unique(VOCALOIDS$Desenvolvedor) #50 nomes distintos
+unique(VOCALOIDS$Idioma) #22 distintos 
+unique(VOCALOIDS$Sexo) #13 distintos
+
+```
+
+Resolvi fazer esse passo para ver a complexidade de mudar cada variável com vários fatores diferentes pois a tabela que peguei está muito mal traduzida do japonês no wikipedia gerando varios erros. 
+```{r}
+#Mudanca das variaveis Desenvolver, Idioma e Sexo
+VOCALOIDS <- VOCALOIDS %>%
+        mutate(Desenvolvedor = lookup(Desenvolvedor, 
+                         c("Zero-G" = "Zero G",
+                           "Yamaha CorporationCrypton Future Media" = 
+                           "Yamaha Corporation-Crypton Future Media",
+                           "PowerFX" = "PowerFX",
+                           "Crypton Future Media" = "Crypton Future Media",
+                           "AH Software" = "AH Software", 
+                           "Yamaha CorporationAvex ManagementInternet Co., Ltd." =
+                           "Yamaha Corporation-Avex Management-Internet Co. Ltd", 
+                           "Yamaha CorporationBplats" = "Yamaha Corporation-Bplats",
+                           "Sony Music Entertainment JapanKi/oon Records Inc." =
+                           "Sony Music Entertainment JapanKi/oon RecordsInc.",  
+                           "Zero-G E-Capsule" = "Zero G-E Capsule",
+                           "Zero-GE-Capsule" = "Zero G-E Capsule",
+                           "PowerFX E-Capsule" = "PowerFX-E Capsule",
+                           "Yamaha Corporation" = "Yamaha Corporation",
+                           "SBS Artech"= "SBS Artech",
+                           "MoeJapan" = "MoeJapan",
+                           "Crypton Future MediaE-Capsule" = "Crypton Future Media-E Capsule", 
+                           "Crypton Future Media E-Capsule" = "Crypton Future Media-E Capsule",                            "Internet Co., Ltd." = "Internet Co. Ltd",
+                           "INTERNET CO, Ltd" = "Internet Co. Ltd",
+                           "INTERNET CO,Ltd" = "Internet Co. Ltd",
+                           "Internet Co."  = "Internet Co. Ltd", 
+                           "Internet co.  MTK" = "Internet Co. Ltd-MTK", 
+                           "Power FXVocaTone" = "PowerFX-VocaTone",
+                           "Power FXVocatoneE-Capsule" = "PowerFX-VocaTone-E Capsule",
+                           "Power Fx  Vocatone" = "PowerFX-VocaTone",
+                           "Voctro Labs" = "Voctro Labs",
+                            "1ST Place"  =  "1ST Place",
+                           "i-Style ProjectStudio DeenSurfer’s Paradise" = 
+                           "i Style Project Studio DeenSurfer’s Paradise",
+                           "Shanghai He Nian" = "Shanghai He Nian" ,
+                           "EXIT TUNES"  = "EXIT TUNES",
+                           "Voctro LabsLa Oreja de Van Gogh" = "Voctro Labs",
+                           "MI7" = "MI7", "We've Inc." = "We've Inc.",
+                           "Universal Music" = "Universal Music",
+                           "Zero-G Limited" = "Zero G Limited",
+                           "Unity Technologies Japan" = "UNITY", 
+                           "Yamaha corporation"  = "Yamaha corporation",
+                           "Shanghai He Nian Beijing Photek S&T" =
+                           "Shanghai He Nian Beijing Photek S&T",  
+                           "ST Media" = "ST Media", "AVA (Akatsuki Virtual Artists)" = "AVA",
+                           "Namco Bandai" = "Namco Bandai", 
+                           "Shanghai Wangcheng Information Technology Co." = 
+                           "Shanghai Wangcheng Information Technology Co.",
+                           "Shanghai He Nian  EXIT TUNES  Aquatrax" =
+                           "Shanghai He Nian-EXIT TUNES-Aquatrax",    
+                           "Beijing Photek S&T" = "Beijing Photek S&T",
+                           "GYNOID  Yamaha corporation" =  "GYNOID-Yamaha corporation",
+                           "VOCANESE  Yamaha Corporation"  = "VOCANESE-Yamaha Corporation",
+                           "Gynoid Co., Ltd." = "GYNOID")),
+               Idioma = lookup(Idioma, c("japonês" = "Japonês",
+                                         "Japonês" = "Japonês", "Inglês" = "Inglês",
+                                         "JaponêsInglês" = "Japonês-Inglês", 
+                                         "Coreano e Japonês" = "Coreano-Japonês",
+                                         "Japonês e Inglês" = "Japonês-Inglês",
+                                         "Inglês e Japonês" = "Japonês-Inglês",
+                                         "Chinês (taiwanês)" = "Chinês(taiwan)",
+                                         "Chinês (mandarim)" = "Chinês(mandarim)",
+                                         "chinês (mandarim)" = "Chinês(mandarim)",
+                                         "japonês" =  "Japonês", 
+                                         "Japonês e inglês" = "Japonês-Inglês",
+                                         "Espanhol" = "Espanhol", "Coreano" = "Coreano",
+                                         "Coreano duplo" = "Coreano",
+                                         "japonês e inglês" = "Japonês-Inglês", 
+                                         "Japonês duplo" = "Japonês",
+                                         "Japonês triplo" = "Japonês",
+                                         "japonês duplo e inglês" = "Japonês-Inglês",
+                                         "Japonês duplo e Inglês duplo" = "Japonês-Inglês",
+                                         "Mandarim, Japonês e Inglês" =
+                                          "Chinês(mandarim)-Japonês-Inglês")),
+               Sexo = lookup(Sexo, c("Feminino" = "Feminino",
+                                     "Masculino" = "Masculino",      
+                                     "Feminino (Rin)Masculino (Len)" =
+                                     "Feminino(Rin)-Masculino(Len)",
+                                     "Unisex (Feminino)" = "Unissex",
+                                     "Unisex (Masculino)" = "Unissex",
+                                     "Unissex (Feminino)" =  "Unissex",
+                                     "Unissex (Masculino)" = "Unissex",
+                                     "Feminino (Unissex)" = "Unissex",
+                                     "Masculino Triplo"  = "Masculino",
+                                     "Feminino Duplo" = "Feminino", 
+                                     "feminino duplo" = "Feminino duplo", 
+                                     "feminino" = "Feminino",
+                                     "masculino" = "Masculino"))) 
+
+```
+
+Deixando em formato tidy as minhas colunas de interesse:
+```{r}
+VOCALOIDS_2 = VOCALOIDS %>% separate_rows(Desenvolvedor, sep = "-") %>%  
+  separate_rows(Idioma, sep = "-") %>% 
+  separate_rows(Sexo, sep = "-") %>%
+  select(Personagem, Desenvolvedor, Idioma, Sexo, Provedor_da_voz, Versao_Vocaloid) 
+```
+
+#Manipulação dos dados e análise
+
+Como as datas tem muitos erros e demoraria muito tempo para consertar do que o resto que foi feito com a limpeza de dados não vou trabalhar com a coluna `Data de Lançamento`
+
+Quantos vocaloids cantam em japonês, coreano, chinês, espanhol e inglês, qual é a lingua predominante?
+```{r}
+VOCALOIDS_2 %>%
+  gather(Idioma, valor, -c(Personagem,Desenvolvedor,Provedor_da_voz,Sexo,Versao_Vocaloid)) %>%
+  group_by(Idioma, valor) %>% summarize(count = n()) %>% 
+  arrange(desc(count)) %>% drop_na()  
+```
+Depois de analisar esta tabela percebemos que a língua mais cantada pelos vocaloids é o Japonês.
+
+Atualmente eu sei que o vocaloid mais famoso é a Hatsune Miku, vamos ver se é o nome dela aparece mais vezes. Os 6 vocaloids mais famosos são os que apresentam o show oficial no Japão (Magical Mirai) são: Hatsune Miku, Kagamine Len, Kagamine Rin, Kaito, Meiko e Megurine Luka da empresa Crypton. Eu procurei tudo que começava escrito com Hatsune Miku para deixar seu nome único pois há várias versões de vocaloids lançadas e geralmente muda-se o nome no final falando qual versão lançou. 
+```{r}
+VOCALOIDS_2 %>% 
+  mutate(Personagem = str_replace(Personagem, "Ha.*$", "Hatsune Miku"),
+         #Chuyin e a versao chinesa de hatsune miku
+         Personagem = str_replace(Personagem, "Chuyin.*$", "Hatsune Miku")) %>%
+  gather(Personagem, valor, -c(Idioma,Desenvolvedor,Provedor_da_voz,Sexo,Versao_Vocaloid)) %>%
+  group_by(Personagem, valor) %>% summarise(count = n()) %>% arrange(desc(count)) %>% drop_na() %>%
+  top_n(1) 
+
+```
+Como podemos ver o nome de Hatsune Miku aparece mais vezes. 
+
+Resolvi fazer este gráfico para analisar quais desenvolvedores lançam mais versões de vocaloids, ou seja, mais atualizam seus Personagens(os cantores virtuais).
+```{r}
+VOCALOIDS_2 %>% 
+  gather(Tipos, valor, -c(Personagem,Idioma,Provedor_da_voz,Sexo,Versao_Vocaloid))%>% 
+  group_by(Tipos, valor, Versao_Vocaloid) %>% summarise(count = n()) %>%
+  arrange(desc(count)) %>% drop_na() %>% 
+  ggplot(aes(x = valor, y = count, fill = Versao_Vocaloid)) + 
+  geom_bar( stat = "identity") + coord_flip() +
+  ggtitle("Quantidade de desenvolvedores por versão de Vocaloid") +
+  xlab("Quantidade") + ylab("Empresas") +
+  theme(axis.text.x = element_text(vjust=0.2), legend.position="top", 
+        plot.title = element_text(hjust = 0.5)) +
+  scale_fill_discrete(name="Versão do Vocaloid",
+                      breaks=c("V1", "V2", "V3", "V4", "V5"))
+```
+
+#Fechando a conexão
+```{r}
+dbDisconnect(vocaloids)
+```
